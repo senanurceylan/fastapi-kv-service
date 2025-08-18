@@ -21,3 +21,22 @@ A simple remote dictionary service with Redis-like commands (LPUSH, LPOP, SPOP) 
 git clone https://github.com/senanurceylan/remote-dictionary-service.git
 cd remote-dictionary-service
 python -m pip install -r requirements.txt
+
+## 🚀 Kullanım Örnekleri / Usage Examples
+
+### 🐚 cURL ile / With cURL
+#### LPUSH
+```bash
+curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json" -d '{"command":"LPUSH","stack_name":"mylist","value":"apple"}'
+#### LPOP
+curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json" -d '{"command":"LPOP","stack_name":"mylist"}'
+#### SADD
+curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json" -d '{"command":"SADD","stack_name":"myset","value":"banana"}'
+#### SPOP
+curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json" -d '{"command":"SPOP","stack_name":"myset"}'
+
+### 🌐 Swagger UI
+- TR: Proje çalıştığında [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) adresinden tarayıcıyla Swagger arayüzüne girip komutları test edebilirsiniz.  
+- EN: When the project is running, go to [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) in your browser to test the commands via Swagger UI.  
+
+
