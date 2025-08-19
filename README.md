@@ -36,6 +36,16 @@ curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json"
 curl -X POST "http://127.0.0.1:8000/command" -H "Content-Type: application/json" -d '{"command":"SPOP","stack_name":"myset"}'
 
 ### 🌐 Swagger UI
+## 🧪 Testler / Tests
+
+- TR: Komut endpoint’leri için otomatik testler eklendi (LPUSH, LPOP, SADD, SPOP).
+- EN: Automated tests added for command endpoints (LPUSH, LPOP, SADD, SPOP).
+
+## 🗂️ .gitignore Düzenlemesi / .gitignore Update
+
+- TR: Gereksiz dosyalar (ör: `__pycache__`, `.env`) versiyon kontrolünden hariç tutuldu.  
+- EN: Unnecessary files (e.g., `__pycache__`, `.env`) excluded from version control.
+
 - TR: Proje çalıştığında [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) adresinden tarayıcıyla Swagger arayüzüne girip komutları test edebilirsiniz.  
 - EN: When the project is running, go to [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) in your browser to test the commands via Swagger UI.  
 
