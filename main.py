@@ -1,5 +1,5 @@
 # ==========================
-# Remote Dictionary Service (FastAPI)
+#  (FastAPI)
 # ==========================
 # Bu dosya; çekirdek "key → value" sözlük servisini,
 # örnek list/set komutlarını ve LRU+TTL cache'li /search'i içerir.
@@ -29,7 +29,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 # -------------------------------------------------
 # FastAPI uygulaması
 # -------------------------------------------------
-app = FastAPI(title="Remote Dictionary Service")
+app = FastAPI(title="Remote Dictionary Service") #web sunucusu oluşturduk
 # Geçici depolama (ileride Redis'e geçeceğiz)
 USE_REDIS = False
 r = None
@@ -44,8 +44,11 @@ except Exception as e:
 
 # =================================================
 # 1) CORE: HASH TABLE (Python dict)  → /set & /list
+
 # =================================================
 # Python'daki dict = Hash Table → ortalama O(1) ekleme/okuma.
+# /set ile veri kaydediyoruz, /list ile geri okuyoruz.
+# Redis varsa Redis'e, yoksa memory'e yazıyor.
 # Not: RAM'de olduğu için process yeniden başlarsa veriler silinir.
 STORE: Dict[str, str] = {}   # 3.8 uyumlu tipleme (Dict[str, str])
 
@@ -71,6 +74,7 @@ def get_value(name: str):
 
 # =========================================
 # 2) HEALTHCHECK (tek ve sade)
+#çalışıyor mu kontrol eder 
 # =========================================
 @app.get("/health")
 def health():
