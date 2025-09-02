@@ -1,7 +1,7 @@
 # fastapi-kv-service
 **FastAPI Key-Value API (Redis-ready, Memory fallback)**
 
-Redis varsa onu, yoksa **bellek** kullanan hafif bir anahtar–değer (key–value) servisi. **TTL/EXPIRE**, **/search için LRU cache** ve temel **list/set** komutları içerir. Docker ile çalışır; Cloud’a hazırdır.
+Redis varsa onu, yoksa **bellek** kullanan  bir anahtar–değer (key–value) servisi. **TTL/EXPIRE**, **/search için LRU cache** ve temel **list/set** komutları içerir. Docker ile çalışır; Cloud’a hazırdır.
 
 ---
 
