@@ -1,16 +1,18 @@
 # fastapi-kv-service
-**FastAPI Key-Value API (Redis-ready, Memory fallback)**
+**FastAPI Key-Value API (Memory, Multi-Store)**
 
-Redis varsa onu, yoksa **bellek** kullanan  bir anahtar–değer (key–value) servisi. **TTL/EXPIRE**, **/search için LRU cache** ve temel **list/set** komutları içerir. Docker ile çalışır; Cloud’a hazırdır.
+Bellekte çalışan bir anahtar–değer (key–value) servisi.  
+Çoklu store desteği, temel **list/set** komutları ve **TTL + LRU cache** içerir.  
 
 ---
 
 ## ✨ Özellikler / Features
-- **Redis (opsiyonel)** → `REDIS_URL` ile bağlanır; erişilemezse **memory fallback**
-- **TTL/EXPIRE** ve **LRU cache** (`/search`, varsayılan 300 sn, max 100 kayıt)
-- Temel **list/set** komutları: `LPUSH`, `LPOP`, `SADD`, `SPOP`
-- **Healthcheck:** `GET /health` → `{"status":"up","backend":"redis|memory"}`
-- **Swagger UI:** `GET /docs`
+- **Multi-Store:** Birden fazla store oluşturulabilir (`/stores/{store}`).
+- **Key-Value işlemleri:** `set`, `get`, `del`, `keys`, `items`.
+- **TTL/EXPIRE + LRU cache:** `/search` endpoint’inde (varsayılan 300 sn, max 100 kayıt).
+- **List/Set komutları:** `LPUSH`, `LPOP`, `SADD`, `SPOP` (demo amaçlı).
+- **Healthcheck:** `GET /health` → `{"status":"up","backend":"memory"}`.
+- **Swagger UI:** `GET /docs`.
 
 ---
 
@@ -44,11 +46,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Environment (.env)
-echo REDIS_URL=redis://127.0.0.1:6379/0 > .env
-
 # Run
 uvicorn main:app --host 0.0.0.0 --port 8000
 # Swagger: http://127.0.0.1:8000/docs
-
 
