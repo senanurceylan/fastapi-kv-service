@@ -11,8 +11,8 @@ from threading import Lock
 from fastapi import FastAPI
 
 
-app_title = "Remote Dictionary Service (Memory, Multi-Store)"  
-app = FastAPI(title=app_title)  # web sunucusu
+app_title = "Remote Data Service (Memory, Multi-Store)"  #başlığı dğişkende tutuyoruz
+app = FastAPI(title=app_title)  # API nın üst kısmında bu başlık yazar
 
 
 # =================================================
