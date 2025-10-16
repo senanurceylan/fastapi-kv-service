@@ -11,14 +11,30 @@ import time
 import tempfile
 import shutil
 from typing import Set, Optional, Any, Dict, List
+from datetime import datetime
+from atomicwrites import atomic_write
 
 from collections import OrderedDict
 from threading import Lock
 from fastapi import FastAPI, Query, HTTPException, Body
 from pydantic import BaseModel
+from google.cloud import storage  # NEW
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+
+
+BUCKET_NAME = os.getenv("BUCKET_NAME")
+SNAPSHOT_BLOB = os.getenv("SNAPSHOT_BLOB", "rds_snapshot.json")
+
 
 app_title = "Remote Data Service (Memory, Multi-Store)"
 app = FastAPI(title=app_title)
+@app.get("/")
+def home():
+    return {"message": "Remote Data Service is running successfully 🚀"}
 
 # =================================================
 # 1) CORE: MULTI-STORE (Memory Only)
@@ -215,31 +231,80 @@ def search(q: str = Query(..., description="Arama sorgusu")):
 # =================================================
 
 # Cloud Run için /tmp güvenli; lokalde istersek env ile değiştirilebilir.
-PERSIST_FILE = os.getenv("PERSIST_FILE", "/tmp/rds_snapshot.jsonl")
-PERSIST_BATCH_SIZE = int(os.getenv("PERSIST_BATCH_SIZE", "1000"))
+PERSIST_FILE = os.getenv("PERSIST_FILE", "/tmp/rds_snapshot.json")
+PERSIST_BATCH_SIZE = int(os.getenv("PERSIST_BATCH_SIZE", "2"))
 
 _persist_lock = Lock()
 _ops_since_last_persist = 0  # kaç mutasyon oldu sayacı
+#----------------------------------------------------
+snapshot = {
+    "stores": STORES,  # veya başka dict
+    "timestamp": datetime.utcnow().isoformat()
+}
 
-def _atomic_write(path: str, data_bytes: bytes):
-    d = os.path.dirname(os.path.abspath(path)) or "."
-    fd, tmp_path = tempfile.mkstemp(dir=d, prefix=".tmp_rds_")
-    with os.fdopen(fd, "wb") as f:
-        f.write(data_bytes)
-    shutil.move(tmp_path, path)
+
+def upload_to_gcs(snapshot_dict: dict, gcs_uri: str):
+    """Upload a snapshot dictionary to Google Cloud Storage."""
+    assert gcs_uri.startswith("gs://"), "Invalid GCS URI"
+
+    _, bucket_name, *file_path_parts = gcs_uri.split("/")
+    file_path = "/".join(file_path_parts)
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(file_path)
+
+    try:
+        blob.upload_from_string(
+            json.dumps(snapshot_dict, indent=2),
+            content_type="application/json"
+        )
+        print(f"[INFO] Snapshot uploaded to gs://{bucket_name}/{file_path}")
+    except Exception as e:
+        print(f"[ERROR] Failed to upload to GCS: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to upload snapshot to GCS.")
+    
+
+
 
 def _serialize_snapshot() -> dict:
-    # set'leri json için listeye çevir
+    """Bellekteki tüm verileri (stores, lists, sets) JSON formatına hazırlar."""
     return {
         "stores": STORES,
         "lists": lists,
         "sets": {k: list(v) for k, v in sets_.items()},
+        "timestamp": datetime.utcnow().isoformat()
     }
 
+
 def _persist_snapshot():
-    snap = _serialize_snapshot()
-    line = (json.dumps(snap, ensure_ascii=False) + "\n").encode("utf-8")
-    _atomic_write(PERSIST_FILE, line)  # tek satır snapshot (en son durum)
+    snap = _serialize_snapshot()  # <--- veriyi oluşturuyor
+    persist_file = os.getenv("PERSIST_FILE", "/tmp/rds_snapshot.json")
+
+    if persist_file.startswith("gs://"):
+        upload_to_gcs(snap, persist_file)
+    else:
+        # local dosyaya yazma
+        try:
+            with open(persist_file, "w", encoding="utf-8") as f:
+                json.dump(snap, f, indent=2, ensure_ascii=False)
+            print(f"[INFO] Snapshot saved locally at {persist_file}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save snapshot locally: {e}")
+            raise HTTPException(status_code=500, detail="Snapshot save failed")
+
+    
+
+
+
+@app.post("/snapshot")
+def create_snapshot():
+    _persist_snapshot()
+    return {"ok": True, "message": "Snapshot saved to GCS"}
+
+
+    # 2) Olmazsa /tmp'ye yaz (fallback)
+   
 
 def _bump_mutation():
     global _ops_since_last_persist
@@ -256,16 +321,34 @@ def _maybe_persist(force: bool = False):
 @app.on_event("startup")
 def _load_snapshot_if_exists():
     try:
-        if os.path.exists(PERSIST_FILE):
+        data_bytes = None
+
+        # 1) Önce GCS'ten dene
+        if BUCKET_NAME:
+            try:
+                data_bytes = _gcs_download()
+                if data_bytes:
+                    print(f"[INFO] Snapshot downloaded from {BUCKET_NAME}/{SNAPSHOT_BLOB}")
+            except Exception as e:
+                print(f"[WARN] GCS download failed: {e}")
+
+        # 2) GCS yoksa dosyadan dene (lokal fallback)
+        if data_bytes is None and os.path.exists(PERSIST_FILE):
             with open(PERSIST_FILE, "rb") as f:
-                line = f.readline()
-                if line:
-                    snap = json.loads(line.decode("utf-8"))
-                    STORES.clear(); STORES.update(snap.get("stores", {}))
-                    lists.clear();  lists.update(snap.get("lists", {}))
-                    sets_.clear();  sets_.update({k: set(v) for k, v in snap.get("sets", {}).items()})
+                data_bytes = f.readline()
+
+        # 3) Belleğe yükle
+        if data_bytes:
+            snap = json.loads(data_bytes.decode("utf-8"))
+            STORES.clear(); STORES.update(snap.get("stores", {}))
+            lists.clear();  lists.update(snap.get("lists", {}))
+            sets_.clear();  sets_.update({k: set(v) for k, v in snap.get("sets", {}).items()})
+            print("[INFO] snapshot restored")
+        else:
+            print("[INFO] no snapshot found; starting fresh")
     except Exception as e:
         print(f"[WARN] snapshot load failed: {e}")
+
 
 @app.on_event("shutdown")
 def _flush_on_shutdown():
@@ -359,3 +442,9 @@ def kv_compat(
 
     else:
         raise HTTPException(400, f"Unknown command: {cmd}")
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
