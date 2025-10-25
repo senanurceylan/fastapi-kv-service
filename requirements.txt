@@ -3,4 +3,5 @@ uvicorn
 pydantic
 google-cloud-storage>=3.0.0
 python-dotenv
-atomicwrites
+atomicwrites==1.4.1
+
